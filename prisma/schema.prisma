@@ -1,0 +1,376 @@
+// PowerPC - schema Prisma
+// Modele generique Product + specs par type (BatterySpec / ChargerSpec).
+// Ajouter un nouveau type de piece = 1 Category + 1 table XxxSpec. Rien d'autre a toucher.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum CategoryType {
+  BATTERIE
+  CHARGEUR
+  AUTRE
+}
+
+enum ProductStatus {
+  DISPONIBLE
+  SUR_COMMANDE
+  INDISPONIBLE
+}
+
+enum OrderStatus {
+  EN_ATTENTE
+  CONFIRMEE
+  EN_PREPARATION
+  EXPEDIEE
+  LIVREE
+  ANNULEE
+}
+
+enum PaymentMethod {
+  PAIEMENT_LIVRAISON
+  WHATSAPP
+}
+
+enum DeliveryMethod {
+  LIVRAISON
+  RETRAIT
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  RETURN
+}
+
+enum RequestStatus {
+  NOUVELLE
+  EN_COURS
+  TRAITEE
+  ANNULEE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  whatsapp     String?
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  addresses     Address[]
+  orders        Order[]
+  carts         Cart[]
+  requests      AvailabilityRequest[]
+  resetTokens   PasswordResetToken[]
+
+  @@index([role])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String?
+  city      String
+  district  String
+  details   String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  laptops  Laptop[]
+  products Product[]
+
+  @@index([slug])
+}
+
+model Laptop {
+  id        String   @id @default(cuid())
+  brandId   String
+  model     String
+  series    String?
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brand           Brand                 @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  compatibilities Compatibility[]
+  requests        AvailabilityRequest[]
+
+  @@unique([brandId, model])
+  @@index([model])
+  @@index([slug])
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  slug      String       @unique
+  type      CategoryType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  products Product[]
+
+  @@index([slug])
+}
+
+model Product {
+  id                String        @id @default(cuid())
+  name              String
+  slug              String        @unique
+  reference         String        @unique
+  description       String?
+  brandId           String
+  categoryId        String
+  priceXof          Int
+  comparePriceXof   Int?
+  stock             Int           @default(0)
+  lowStockThreshold Int           @default(3)
+  status            ProductStatus @default(DISPONIBLE)
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  brand           Brand           @relation(fields: [brandId], references: [id])
+  category        Category        @relation(fields: [categoryId], references: [id])
+  batterySpec     BatterySpec?
+  chargerSpec     ChargerSpec?
+  images          ProductImage[]
+  compatibilities Compatibility[]
+  stockMovements  StockMovement[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  reviews         Review[]
+
+  @@index([slug])
+  @@index([reference])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([isActive, status])
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  productId    String
+  customerName String
+  rating       Int
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model BatterySpec {
+  productId   String  @id
+  voltage     Float
+  capacityMah Int?
+  capacityWh  Float?
+  cells       Int?
+  chemistry   String? @default("Li-ion")
+  isInternal  Boolean @default(true)
+  warranty    String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model ChargerSpec {
+  productId String  @id
+  watts     Int
+  voltage   Float
+  amperage  Float
+  connector String
+  isUsbC    Boolean @default(false)
+  cableType String?
+  warranty  String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([watts])
+}
+
+model Compatibility {
+  id        String   @id @default(cuid())
+  productId String
+  laptopId  String
+  verified  Boolean  @default(false)
+  note      String?
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  laptop  Laptop  @relation(fields: [laptopId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, laptopId])
+  @@index([laptopId])
+  @@index([productId])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String
+  alt       String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model StockMovement {
+  id        String            @id @default(cuid())
+  productId String
+  type      StockMovementType
+  quantity  Int
+  reason    String?
+  reference String?
+  createdAt DateTime          @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([userId])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  reference      String         @unique
+  userId         String?
+  firstName      String
+  lastName       String
+  phone          String
+  whatsapp       String?
+  city           String
+  district       String
+  addressDetails String?
+  deliveryMethod DeliveryMethod @default(LIVRAISON)
+  paymentMethod  PaymentMethod  @default(PAIEMENT_LIVRAISON)
+  status         OrderStatus    @default(EN_ATTENTE)
+  subtotalXof    Int
+  deliveryXof    Int            @default(0)
+  totalXof       Int
+  note           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user  User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id            String @id @default(cuid())
+  orderId       String
+  productId     String
+  productName   String
+  productRef    String
+  unitPriceXof  Int
+  quantity      Int
+  totalPriceXof Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model AvailabilityRequest {
+  id           String        @id @default(cuid())
+  userId       String?
+  laptopId     String?
+  customerName String
+  phone        String
+  whatsapp     String?
+  brandName    String
+  laptopModel  String
+  type         CategoryType
+  knownRef     String?
+  message      String?
+  imageUrl     String?
+  status       RequestStatus @default(NOUVELLE)
+  adminNote    String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  laptop Laptop? @relation(fields: [laptopId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+}
