@@ -7,7 +7,13 @@ export function cn(...inputs: ClassValue[]) {
 
 /** Les montants sont stockes en entiers FCFA (le XOF n'a pas de decimales). */
 export function formatXof(amount: number): string {
-  return new Intl.NumberFormat('fr-SN', { maximumFractionDigits: 0 }).format(amount) + ' FCFA';
+  // Separateur de milliers explicite (point) : 30000 -> "30.000 FCFA".
+  // On evite Intl.NumberFormat car son separateur depend de la locale du
+  // serveur/navigateur (espace insecable), ce qui rendrait l'affichage instable.
+  const grouped = Math.round(amount)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${grouped} FCFA`;
 }
 
 export function formatDate(date: Date | string): string {
