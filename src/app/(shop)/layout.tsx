@@ -1,6 +1,7 @@
 import { Sidebar } from '@/components/shop/sidebar';
 import { TopBar } from '@/components/shop/top-bar';
 import { MobileTabBar } from '@/components/shop/mobile-tab-bar';
+import { FloatingWhatsapp } from '@/components/shop/floating-whatsapp';
 import { Footer } from '@/components/shop/footer';
 import { getSession } from '@/lib/session';
 
@@ -19,6 +20,7 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
         <Footer />
       </div>
       <MobileTabBar isAuthenticated={isAuthenticated} />
+      <FloatingWhatsapp />
     </div>
   );
 }
